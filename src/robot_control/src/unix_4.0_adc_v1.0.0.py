@@ -1,6 +1,9 @@
+#!/usr/bin/env python
+
 import RPi.GPIO as GPIO
 from time import sleep
-
+import rospy
+from std_msgs.msg import String
 import serial
 
 uart = serial.Serial(port='/dev/ttyS0', baudrate=115200, timeout=1)
@@ -46,5 +49,4 @@ while True:
         
     print(adc_values)
     adc_values.clear()
-                    
-    
+ 
