@@ -4,6 +4,7 @@ import RPi.GPIO as GPIO
 from time import sleep
 import rospy
 from std_msgs.msg import String
+from std_msgs.msg import UInt8
 import serial
 
 uart = serial.Serial(port='/dev/ttyS0', baudrate=115200, timeout=1)
@@ -122,11 +123,13 @@ def claw_open():
     GPIO.output(claw_m3_b_ccw, GPIO.LOW)
     GPIO.output(claw_m3_b_cw, GPIO.HIGH)
 def claw_close():
+    GPIO.output(claw_m3_b_ccw, GPIO.HIGH)
+    GPIO.output(claw_m3_b_cw, GPIO.LOW)
+def claw_stop():
     GPIO.output(claw_m3_b_ccw, GPIO.LOW)
-    GPIO.output(claw_m3_b_cw, GPIO.LOW)   
+    GPIO.output(claw_m3_b_cw, GPIO.LOW)
 
 def manipulator_stop():
-    send_pwm_val(0, 0, 0, 0, 0,0)
     base_stop()
     ac1_stop()
     ac2_stop()
@@ -135,99 +138,133 @@ def manipulator_stop():
     claw_stop()
     
 def get_adc_data():
-    if uart.read() == 'S'.encode():
-        uart_data = uart.read().decode()
-        j = 0
-        crc = 0
-        for i in range(10):
-            temp = ""
-            while uart_data is not '|':
-                temp = temp + str(uart_data)
-                print(temp)               
-                uart_data = uart.read().decode()
-             
-            if temp is not '' or i is 9:
-                if(i is 9):
-                    rx_crc = int(temp)
-                else:
-                    adc_values.insert(j, int(temp))
-                    crc = crc + int(adc_values[j])
-                    j = j + 1
-                
+    global adc_values
+    try:
+        if uart.read() == 'S'.encode():
             uart_data = uart.read().decode()
-        print(crc)
-        print(rx_crc)
-        
-        if crc != rx_crc:
-            print("CRC Mismatch")
-            adc_values.clear()
-            return False
-        elif crc == rx_crc or uart.read() == 'E'.encode():
-            uart.write('D'.encode())
-            print("k")
-        
-    print(adc_values)
-    adc_values.clear()
-    return True
+            j = 0
+            crc = 0
+            for i in range(10):
+                temp = ""
+                while uart_data is not '|':
+                    temp = temp + str(uart_data)
+                    #print(temp)               
+                    uart_data = uart.read().decode()
+                 
+                if temp is not '' or i is 9:
+                    if(i is 9):
+                        rx_crc = int(temp)
+                    else:
+                        adc_values.insert(j, int(temp))
+                        crc = crc + int(adc_values[j])
+                        j = j + 1
+                    
+                uart_data = uart.read().decode()
+            #print(crc)
+            print(rx_crc)
+            
+            if crc != rx_crc:
+                #print("CRC Mismatch")
+                adc_values.clear()
+                return False
+            elif crc == rx_crc or uart.read() == 'E'.encode():
+                uart.write('D'.encode())
+                #print("k")
+            
+        #print(adc_values)
+        adc_values[:] = []
+        return True
+    except:
+        return False
 
 #subscriber
 def callback(message):
+    #call_talker()
+    
     rospy.loginfo(message.data)
     
-    #base|base_pwm|ac1|ac1_pwm|ac2|ac2_pwm|ac3|ac3_pwm|wrist|wrist_pwm|claw|claw_pwm|all_stop
-    data = int((message.data).split('|'))
-    
-    if data[12] is 0:
-        send_pwm_val(data[1], data[3], data[5], data[7], data[9], data[11])
-        
-        if data[0] is 1 :
-            base_rotate_right()
-        elif data[0] is 2 :
-            base_rotate_left()
-        elif data[0] is 0 :
-            base_stop()
-            
-        if data[2] is 1 :
-            ac1_rotate_up()
-        elif data[2] is 2 :
-            ac1_rotate_dowm()
-        elif data[2] is 0 :
-            ac1_stop()
-            
-        if data[4] is 1 :
-            ac2_rotate_up()
-        elif data[4] is 2 :
-            ac2_rotate_dowm()
-        elif data[4] is 0 :
-            ac2_stop()
-            
-        if data[6] is 1 :
-            ac3_rotate_up()
-        elif data[6] is 2 :
-            ac3_rotate_dowm()
-        elif data[6] is 0 :
-            ac3_stop()
-            
-        if data[8] is 1 :
-            wrist_rotate_right()
-        elif data[8] is 2 :
-            wrist_rotate_left()
-        elif data[8] is 0 :
-            wrist_stop()
-            
-        if data[10] is 1 :
-            claw_open()
-        elif data[10] is 2 :
-            claw_close()
-        elif data[10] is 0 :
-            claw_stop()
-            
-    elif data[12] is 1:
+    if message.data is 9:
+        ac1_rotate_up()
+    if message.data is 10:
+        ac1_rotate_dowm()
+    if message.data is 11:
+        ac2_rotate_up()
+    if message.data is 12:
+        ac2_rotate_dowm()
+    if message.data is 13:
+        ac3_rotate_up()
+    if message.data is 14:
+        ac3_rotate_dowm()
+    if message.data is 15:
+        base_rotate_right()
+    if message.data is 16:
+        base_rotate_left()
+    if message.data is 17:
+        wrist_rotate_right()
+    if message.data is 18:
+        wrist_rotate_left()
+    if message.data is 19:
+        claw.open()
+    if message.data is 20:
+        claw.close()
+    if message.data is 21:
         manipulator_stop()
+    
+#     #base|base_pwm|ac1|ac1_pwm|ac2|ac2_pwm|ac3|ac3_pwm|wrist|wrist_pwm|claw|claw_pwm|all_stop
+#     data = int((message.data).split('|'))
+#     
+#     if data[12] is 0:
+#         send_pwm_val(data[1], data[3], data[5], data[7], data[9], data[11])
+#         
+#         if data[0] is 1 :
+#             base_rotate_right()
+#         elif data[0] is 2 :
+#             base_rotate_left()
+#         elif data[0] is 0 :
+#             base_stop()
+#             
+#         if data[2] is 1 :
+#             ac1_rotate_up()
+#         elif data[2] is 2 :
+#             ac1_rotate_dowm()
+#         elif data[2] is 0 :
+#             ac1_stop()
+#             
+#         if data[4] is 1 :
+#             ac2_rotate_up()
+#         elif data[4] is 2 :
+#             ac2_rotate_dowm()
+#         elif data[4] is 0 :
+#             ac2_stop()
+#             
+#         if data[6] is 1 :
+#             ac3_rotate_up()
+#         elif data[6] is 2 :
+#             ac3_rotate_dowm()
+#         elif data[6] is 0 :
+#             ac3_stop()
+#             
+#         if data[8] is 1 :
+#             wrist_rotate_right()
+#         elif data[8] is 2 :
+#             wrist_rotate_left()
+#         elif data[8] is 0 :
+#             wrist_stop()
+#             
+#         if data[10] is 1 :
+#             claw_open()
+#         elif data[10] is 2 :
+#             claw_close()
+#         elif data[10] is 0 :
+#             claw_stop()
+#             
+#     elif data[12] is 1:
+#         manipulator_stop()
 
 def listener():
-    rospy.Subscriber("manipulator/control", string, callback)
-    rospy.spinOnce()
+    rospy.Subscriber("manipulator/control", UInt8, callback)
+    call_talker()
+    rospy.spin()
     
 #publisher
 def talker(adc_str):
@@ -245,6 +282,11 @@ def ros_packet(adc_values):
     
     return adc_str
 
+def call_talker():
+    #if get_adc_data():
+    #    talker(adc_values)
+    print("dd")
+
 
 if __name__ == '__main__':
     adc_values = []
@@ -252,11 +294,8 @@ if __name__ == '__main__':
     crc = 0
     manipulator_stop()
     rospy.init_node("manipulator_driver", anonymous = False)
-    while True:
-        listener()
-        sleep(0.1)
-        if get_adc_data():
-            talker(adc_values)
+    listener()
+        
         
 
 
