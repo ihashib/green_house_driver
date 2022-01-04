@@ -1,0 +1,12 @@
+uint8 base
+uint8 base_pwm
+uint8 ac1
+uint8 ac1_pwm
+uint8 ac2
+uint8 ac2_pwm
+uint8 ac3
+uint8 ac3_pwm
+uint8 wrist
+uint8 wrist_pwm
+uint8 claw
+uint8 claw_pwm
